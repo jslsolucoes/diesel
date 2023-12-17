@@ -85,6 +85,14 @@ pub enum Error {
     /// ignored in error handling.
     RollbackTransaction,
 
+    /// Roll back the current transaction with provided details.
+    ///
+    /// You can return this variant inside of a transaction when you want to
+    /// roll it back with custom details to catch later. Diesel will never
+    /// return this variant unless you gave it to us, and it can be safely
+    /// ignored in error handling.
+    RollbackTransactionWithDetails(Box<dyn StdError + Send + Sync>),
+
     /// Attempted to perform an operation that cannot be done inside a transaction
     /// when a transaction was already open.
     AlreadyInTransaction,
@@ -326,6 +334,9 @@ impl Display for Error {
             Error::RollbackTransaction => {
                 write!(f, "You have asked diesel to rollback the transaction")
             }
+            Error::RollbackTransactionWithDetails(ref e) => {
+                write!(f, "You have asked diesel to rollback the transaction with details: {}", e)
+            }
             Error::BrokenTransactionManager => write!(f, "The transaction manager is broken"),
             Error::AlreadyInTransaction => write!(
                 f,
@@ -378,6 +389,7 @@ impl PartialEq for Error {
             (Error::DatabaseError(_, a), Error::DatabaseError(_, b)) => a.message() == b.message(),
             (&Error::NotFound, &Error::NotFound) => true,
             (&Error::RollbackTransaction, &Error::RollbackTransaction) => true,
+            (&Error::RollbackTransactionWithDetails(ref d1), &Error::RollbackTransactionWithDetails(ref d2)) => d1.to_string() == d2.to_string(),
             (&Error::AlreadyInTransaction, &Error::AlreadyInTransaction) => true,
             _ => false,
         }

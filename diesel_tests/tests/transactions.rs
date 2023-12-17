@@ -55,6 +55,29 @@ fn transaction_is_rolled_back_when_returned_an_error() {
     drop_test_table(connection, test_name);
 }
 
+#[test]
+fn transaction_is_rolled_back_when_returned_an_error_with_details() {
+    let connection = &mut connection_without_transaction();
+    let test_name = "transaction_is_rolled_back_with_details_when_returned_an_error";
+    setup_test_table(connection, test_name);
+
+    let r = connection.transaction::<(), _, _>(|connection| {
+        diesel::sql_query(format!("INSERT INTO {test_name} DEFAULT VALUES"))
+            .execute(connection)
+            .unwrap();
+        Err(Error::RollbackTransactionWithDetails(
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "RollbackTransactionWithDetails",
+            )),
+        ))
+    });
+    assert!(matches!(r.unwrap_err(), Error::RollbackTransactionWithDetails(_)));
+    assert_eq!(0, count_test_table(connection, test_name));
+
+    drop_test_table(connection, test_name);
+}
+
 // This test uses a SQLite3 fact to generate a rollback error,
 // so that we can verify error. Reference:
 // https://www.sqlite.org/lang_transaction.html
